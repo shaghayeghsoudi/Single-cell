@@ -206,3 +206,41 @@ seurat_src[['ATAC']] <- CreateChromatinAssay(counts_atac_merged,
                                          sep = c(":",
                                                  "-"),
                                          genome = "hg38")
+
+
+
+###############
+### Step 2 ####
+###############
+### Quality control
+
+
+seurat_src <- PercentageFeatureSet(seurat_src, pattern = "^MT-", col.name = "percent.mt",
+                               assay = "RNA")
+seurat_src <- NucleosomeSignal(seurat_src, assay = "ATAC")
+seurat_src <- TSSEnrichment(seurat_src, assay = "ATAC")
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/VlnPlot_quality_combined_SRC_samples.pdf",height = 6, width =12 )
+quality_plot<-VlnPlot(seurat_src,
+        features = c("nFeature_RNA",
+                     "percent.mt",
+                     "nFeature_ATAC",
+                     "TSS.enrichment",
+                     "nucleosome_signal"),
+                      ncol = 5,
+                      pt.size = 0)
+print(quality_plot)
+dev.off()
+
+#### filter our low quality cells 
+
+seurat_src <- subset(seurat_src,
+                 subset = nFeature_RNA > 500 &
+                   nFeature_RNA < 7000 &
+                   percent.mt < 30 &
+                   nFeature_ATAC > 500 &
+                   nFeature_ATAC < 10000 &
+                   TSS.enrichment > 1 &
+                   nucleosome_signal < 2
+)
+
