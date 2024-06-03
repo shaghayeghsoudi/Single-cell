@@ -491,16 +491,36 @@ pbmc <- FindTopFeatures(pbmc, min.cutoff = 5)  ## feature selection
 pbmc <- RunTFIDF(pbmc)  ## Normalization
 pbmc <- RunSVD(pbmc)  ## Linear dimension reduction
 
-
+## Clustering and further dimensionality reduction ##
 ### non-linear dimension reduction with UMAP for visualization (in the git tutorial)
 p1<-ElbowPlot(pbmc,ndims = 30, reduction = "lsi")
 p2<-DepthCor(pbmc, n= 30)
 p2
 
-RunUMAP(pbmc , reduction = "lsi", dims= 2:30, reduction.name = "umap_atac",reduction.key= "UMAPATAC_")
+
+##### Tutorial 1
+RunUMAP(pbmc , reduction = "lsi", dims= 2:30, reduction.name = "umap_atac",reduction.key= "UMAPATAC_")  ## umap
+pbmc <- FindNeighbors(object = pbmc, reduction = 'lsi', dims = 2:34, k.param=13)
+pbmc <- FindClusters(object = pbmc, verbose = FALSE)
 
 
+p1 <- DimPlot(object = pbmc, label = TRUE, dims = c(2, 3), reduction = "lsi") +
+NoLegend() +
+ggtitle('SVD')
+p2 <- DimPlot(object = pbmc, label = TRUE) +
+NoLegend() +
+ggtitle('UMAP')
+
+p2 <- FeaturePlot(b,
+c("PDGFB","CLDN5","PDGFRB","COL5A1"),
+reduction = "umap_atac") & NoAxes() & NoLegend()
+
+p1 | p2
 
 
+#####
+### integrated samples ###
+RunUMAP(pbmc , reduction = "lsi", dims= 2:30, reduction.name = "umap_atac",reduction.key= "UMAPATAC_")  ## umap
+p1 <- DimPlot(object = pbmc, label = TRUE, dims = c(2, 3), reduction = "lsi") +
 
 
