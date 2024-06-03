@@ -244,3 +244,38 @@ seurat_src <- subset(seurat_src,
                    nucleosome_signal < 2
 )
 
+
+#################
+##### Step 3 ###
+## Analysis on the RNA assay ####
+
+DefaultAssay(seurat_src) <- "RNA"
+
+seurat_src <- NormalizeData(seurat_src) %>%
+  FindVariableFeatures(nfeatures = 3000) %>%
+  #CellCycleScoring(s.features = cc.genes.updated.2019$s.genes,
+                   #g2m.features = cc.genes.updated.2019$g2m.genes) %>%
+  ScaleData() %>%
+  RunPCA(npcs = 50) %>%
+  RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")
+
+
+p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna") & NoAxes()
+p1
+
+
+p2 <- FeaturePlot(seurat_src,
+c("IGFBP7", "PREX2", "CALCRL", "ADAMTS9", "CYYR1", "SPP1", "VEGFC"," NFIB"))
+#reduction = "umap_css_rna") & NoAxes() & NoLegend()
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
+both<-p1 | p2
+print(both)
+dev.off()
+
+
+
+### clustering and cluster marker identification, just as in the typical scRNA-seq data analysis
+seurat <- FindNeighbors(seurat,
+                        reduction = "css_rna",
+                        dims = 1:ncol(Embeddings(seurat,"css_rna"))) %>%
+  FindClusters(resolution = 0.2)
