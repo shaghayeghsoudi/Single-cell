@@ -117,11 +117,13 @@ NoLegend() +
 ggtitle('UMAP')
 
 p2 <- FeaturePlot(pbmc,
-c("PDGFB","CLDN5","PDGFRB","CD99"),
+c("PDGFB","CLDN5","PDGFRB","CD99"),alpha = 0.2)
 reduction.name = "umap_atac") & NoAxes() & NoLegend()
 
 #p1 | p2
 
+### save data here
+save(pbmc, file="pbmc.test.Rda")
 
 #####
 ### integrated samples ###
@@ -129,3 +131,52 @@ RunUMAP(pbmc , reduction = "lsi", dims= 2:30, reduction.name = "umap_atac",reduc
 p1 <- DimPlot(object = pbmc, label = TRUE, dims = c(2, 3), reduction = "lsi") +
 
 
+##########################
+##### joint samples ######
+
+root<-("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024")
+
+
+counts_399_1 <- Read10X_h5(filename = paste(root,"/med399-1/filtered_feature_bc_matrix.h5", sep = ""))
+counts_399_2 <- Read10X_h5(filename = paste(root,"/med399-2/filtered_feature_bc_matrix.h5", sep = ""))
+
+
+ATAC_frag399_1<-"~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/med399-1/atac_fragments.tsv.gz"
+ATAC_frag399_2<-"~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/med399-2/atac_fragments.tsv.gz"
+
+
+
+#### get gene annotations from hg38 assembly 
+ah <- AnnotationHub()
+ensdbs <- query(ah, c("EnsDb.Hsapiens"))
+ensdb_id <- ensdbs$ah_id[grep(paste0(" 98 EnsDb"), ensdbs$title)]
+ensdb <- ensdbs[[ensdb_id]]
+seqlevelsStyle(ensdb) <- "UCSC"
+annotations <- GetGRangesFromEnsDb(ensdb = ensdb)
+genome(annotations) <- "hg38"
+
+
+# create a Seurat object containing the RNA adata
+seurat_SRC399_1 <- CreateSeuratObject(counts = med399_1_counts$`Gene Expression`,
+                                 assay = "RNA",
+                                 project = "SRC399-1")
+
+
+
+seurat_SRC399_2 <- CreateSeuratObject(counts = med399_2_counts$`Gene Expression`,
+                                      assay = "RNA",
+                                      project = "SRC399-2")
+
+
+seurat_SRC399_1[['ATAC']] <- CreateChromatinAssay(counts = med399_1_counts$`Peaks`,
+                                             annotation = annotations,fragments =ATAC_frag399_1,
+                                             sep = c(":", "-"),
+                                             genome = 'hg38')
+                                             
+                                               
+                                             
+
+seurat_SRC399_2[['ATAC']] <- CreateChromatinAssay(counts = med399_2_counts$`Peaks`,
+                                                  annotation = annotations,fragments =ATAC_frag399_2,
+                                                  sep = c(":", "-"),
+                                                  genome = 'hg38')
