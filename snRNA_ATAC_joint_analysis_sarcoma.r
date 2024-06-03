@@ -183,4 +183,26 @@ seurat_SRC399_2[['ATAC']] <- CreateChromatinAssay(counts = counts_399_2$`Peaks`,
 
 
 ### merge for samples (works for RNA)
-seurat <- merge(seurat_SRC399_1, seurat_SRC399_2)                                                 
+seurat_src <- merge(seurat_SRC399_1, seurat_SRC399_2)      
+
+## merge ATACseq assays 
+
+
+peaks <- reduce(unlist(as(c(seurat_SRC399_1@assays$ATAC@ranges,
+                            seurat_SRC399_2@assays$ATAC@ranges),
+                          "GRangesList")))
+peakwidths <- width(peaks)
+peaks <- peaks[peakwidths < 10000 & peakwidths > 20]
+
+
+counts_atac_merged <- FeatureMatrix(seurat_src@assays$ATAC@fragments,
+                                    features = peaks,
+                                    cells = colnames(seurat_src))
+
+seurat_src[['ATAC']] <- CreateChromatinAssay(counts_atac_merged,
+                                         fragments = seurat_src@assays$ATAC@fragments,
+                                         annotation =
+                                           seurat_src@assays$ATAC@annotation,
+                                         sep = c(":",
+                                                 "-"),
+                                         genome = "hg38")
