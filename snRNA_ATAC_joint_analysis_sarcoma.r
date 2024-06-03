@@ -157,18 +157,18 @@ genome(annotations) <- "hg38"
 
 
 # create a Seurat object containing the RNA adata
-seurat_SRC399_1 <- CreateSeuratObject(counts = med399_1_counts$`Gene Expression`,
+seurat_SRC399_1 <- CreateSeuratObject(counts = counts_399_1$`Gene Expression`,
                                  assay = "RNA",
                                  project = "SRC399-1")
 
 
 
-seurat_SRC399_2 <- CreateSeuratObject(counts = med399_2_counts$`Gene Expression`,
+seurat_SRC399_2 <- CreateSeuratObject(counts = counts_399_2$`Gene Expression`,
                                       assay = "RNA",
                                       project = "SRC399-2")
 
 
-seurat_SRC399_1[['ATAC']] <- CreateChromatinAssay(counts = med399_1_counts$`Peaks`,
+seurat_SRC399_1[['ATAC']] <- CreateChromatinAssay(counts = counts_399_1$`Peaks`,
                                              annotation = annotations,fragments =ATAC_frag399_1,
                                              sep = c(":", "-"),
                                              genome = 'hg38')
@@ -176,7 +176,11 @@ seurat_SRC399_1[['ATAC']] <- CreateChromatinAssay(counts = med399_1_counts$`Peak
                                                
                                              
 
-seurat_SRC399_2[['ATAC']] <- CreateChromatinAssay(counts = med399_2_counts$`Peaks`,
+seurat_SRC399_2[['ATAC']] <- CreateChromatinAssay(counts = counts_399_2$`Peaks`,
                                                   annotation = annotations,fragments =ATAC_frag399_2,
                                                   sep = c(":", "-"),
                                                   genome = 'hg38')
+
+
+### merge for samples (works for RNA)
+seurat <- merge(seurat_SRC399_1, seurat_SRC399_2)                                                 
