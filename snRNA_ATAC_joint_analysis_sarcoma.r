@@ -9,6 +9,8 @@ library(BSgenome.Hsapiens.UCSC.hg38)
 
 library(ggplot2)
 library(patchwork)
+#library(simspec)  ## for data integration
+library("harmony")
 
 
 
@@ -192,7 +194,7 @@ peaks <- reduce(unlist(as(c(seurat_SRC399_1@assays$ATAC@ranges,
                             seurat_SRC399_2@assays$ATAC@ranges),
                           "GRangesList")))
 peakwidths <- width(peaks)
-peaks <- peaks[peakwidths < 10000 & peakwidths > 20]
+peaks <- peaks[peakwidths < 15000 & peakwidths > 10]
 
 
 counts_atac_merged <- FeatureMatrix(seurat_src@assays$ATAC@fragments,
@@ -235,19 +237,20 @@ dev.off()
 #### filter our low quality cells 
 
 seurat_src <- subset(seurat_src,
-                 subset = nFeature_RNA > 500 &
-                   nFeature_RNA < 7000 &
+                 subset = nFeature_RNA > 100 &   ### adjust thresholds
+                   nFeature_RNA < 10000 &
                    percent.mt < 30 &
-                   nFeature_ATAC > 500 &
-                   nFeature_ATAC < 10000 &
+                   nFeature_ATAC > 100 &
+                   nFeature_ATAC < 20000 &
                    TSS.enrichment > 1 &
-                   nucleosome_signal < 2
+                   nucleosome_signal < 3
 )
 
 
-#################
-##### Step 3 ###
+#################################
+##### Step 3 ####################
 ## Analysis on the RNA assay ####
+#################################
 
 DefaultAssay(seurat_src) <- "RNA"
 
@@ -259,23 +262,84 @@ seurat_src <- NormalizeData(seurat_src) %>%
   RunPCA(npcs = 50) %>%
   RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")
 
-
-p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna") & NoAxes()
+## checking batch effect
+p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna",pt.size =1.5) & NoAxes()
 p1
 
 
 p2 <- FeaturePlot(seurat_src,
-c("IGFBP7", "PREX2", "CALCRL", "ADAMTS9", "CYYR1", "SPP1", "VEGFC"," NFIB"))
+c("IGFBP7", "PREX2", "CALCRL", "ADAMTS9", "CYYR1", "SPP1", "VEGFC"," NFIB"), alpha = 1, pt.size =1)
 #reduction = "umap_css_rna") & NoAxes() & NoLegend()
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
-both<-p1 | p2
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples_batch_effect_relaxed.pdf",height = 14, width =19)
+both<-p1 + p2
 print(both)
+dev.off()
+
+#######################################################
+### performing data integration to fix batch effect ###
+
+#seurat_src <- cluster_sim_spectrum(seurat_src,
+#label_tag = "orig.ident",
+#cluster_resolution = 0.6,
+#reduction.name = "css_rna",
+#reduction.key = "CSSRNA_")
+
+
+seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident", dims.use = 1:20,max.iter.harmony = 50)
+
+seurat_src <- RunUMAP(seurat_src,
+    reduction = "harmony",
+    dims = 1:20)
+
+
+
+##########################################
+### Step 4. Analysis on the ATAC assay ###
+##########################################
+
+#Feature selection
+DefaultAssay(seurat_src) <- "ATAC"
+seurat_src <- FindTopFeatures(seurat_src, min.cutoff = 50)
+
+## Normalization
+seurat_src <- RunTFIDF(seurat_src)
+
+## linear dimenssion reduction
+seurat_src <- RunSVD(seurat_src, n = 50)
+
+
+#Non-linear dimension reduction with UMAP for visualization
+
+p1 <- ElbowPlot(seurat_src, ndims = 30, reduction="lsi")
+p2 <- DepthCor(seurat_src, n = 30)
+p1 | p2
+
+#2nd to the 30th SVD components to generate the UMAP embedding of the ATAC assay
+
+seurat <- RunUMAP(seurat_src,
+reduction = "lsi",
+dims = 2:30,
+reduction.name = "umap_atac",
+reduction.key = "UMAPATAC_")
+
+p2 <- FeaturePlot(seurat,
+c("PDGFB","CLDN5","PDGFRB","COL5A1"),
+reduction = "umap_atac")
+#reduction = "umap_atac") 
+
+p2 <- FeaturePlot(seurat_src,
+c("MS4A1", "CD3D", "LEF1", "NKG7", "TREM1", "LYZ"))
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
+both_ATAC<-p1 | p2
+print(both_ATAC)
 dev.off()
 
 
 
-### clustering and cluster marker identification, just as in the typical scRNA-seq data analysis
-seurat <- FindNeighbors(seurat,
-                        reduction = "css_rna",
-                        dims = 1:ncol(Embeddings(seurat,"css_rna"))) %>%
-  FindClusters(resolution = 0.2)
+###
+
+
+atac <- RunTFIDF(seurat_src)
+atac <- FindTopFeatures(seurat_src, min.cutoff = 'q0')
+atac <- RunSVD(atac)
