@@ -263,7 +263,7 @@ seurat_src <- NormalizeData(seurat_src) %>%
   RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")
 
 ## checking batch effect
-p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna",pt.size =1.5) & NoAxes()
+p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna",pt.size =1.5) 
 p1
 
 
@@ -285,13 +285,75 @@ dev.off()
 #reduction.key = "CSSRNA_")
 
 
-seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident", dims.use = 1:20,max.iter.harmony = 50)
+seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",plot_converge=TRUE,max_iter = 10)
 
 seurat_src <- RunUMAP(seurat_src,
     reduction = "harmony",
-    dims = 1:20)
+    dims = 1:ncol(Embeddings(seurat_src,"harmony")))
 
 
+### save the object
+p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap",pt.size =1.5) 
+
+p2 <- FeaturePlot(seurat_src,
+c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+reduction = "umap",alpha = 1, pt.size =1)
+
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
+both<-p1 + p2
+print(both)
+dev.off()
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/P1_RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
+p2 <- FeaturePlot(seurat_src,
+c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+reduction = "umap",alpha = 1, pt.size =1)
+print(p2)
+dev.off()
+
+#p2 <- FeaturePlot(seurat_src,
+#c("PREX2","CD99", "CAV1","KDSR","CALCRL", "CYYR1", "SNTG2", "SPP1", "RAMP3", "ADAMTS9", "IGFBP5", "TPO" ),
+#reduction = "umap",alpha = 1, pt.size =1)
+#print(p2)
+
+
+## clustering and cluster marker identification
+
+seurat_src <- FindNeighbors(seurat_src,
+reduction = "harmony",
+dims = 1:ncol(Embeddings(seurat_src,"harmony"))) %>%
+FindClusters(resolution = 0.2)
+
+
+#DE_cl_rna <- presto::wilcoxauc(seurat_src, "RNA_snn_res.0.2")
+#top_markers <- DE_cl_rna %>%
+#filter(logFC > log(1.2) &
+#auc > 0.7 &
+#padj < 0.05 &
+#pct_in - pct_out > 30 &
+#pct_out < 30) %>%
+#group_by(group) %>%
+#top_n(1, wt = auc)
+
+
+p1 <- DimPlot(seurat_src,
+group.by="RNA_snn_res.0.2",
+reduction="umap", label=T,pt.size =1.9, alpha = 0.7) 
+
+p2 <- FeaturePlot(seurat_src,
+c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+order = T,
+ncol=3) 
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/clustered_RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
+both_clustered<-(p1 | p2) + patchwork::plot_layout(widths = c(2,3))
+print(both_clustered)
+dev.off()
+
+
+# You may also want to save the object
+#saveRDS(seurat, file="integrated_seurat.rds")
 
 ##########################################
 ### Step 4. Analysis on the ATAC assay ###
