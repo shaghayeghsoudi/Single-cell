@@ -374,34 +374,68 @@ seurat_src <- RunSVD(seurat_src, n = 50)
 
 p1 <- ElbowPlot(seurat_src, ndims = 30, reduction="lsi")
 p2 <- DepthCor(seurat_src, n = 30)
-p1 | p2
+p1 + p2
 
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATAC_ellbow_depthCor.pdf",height = 6, width =7)
+atac_both_raw<- p1+ p2
+print(atac_both_raw)
+dev.off()
 #2nd to the 30th SVD components to generate the UMAP embedding of the ATAC assay
 
-seurat <- RunUMAP(seurat_src,
+seurat_src <- RunUMAP(seurat_src,
 reduction = "lsi",
 dims = 2:30,
 reduction.name = "umap_atac",
 reduction.key = "UMAPATAC_")
 
-p2 <- FeaturePlot(seurat,
-c("PDGFB","CLDN5","PDGFRB","COL5A1"),
+p1 <- DimPlot(seurat_src,
+group.by = "orig.ident",
+reduction = "umap_atac",pt.size =1.5) 
+
+p2 <- FeaturePlot(seurat_src,
+c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
 reduction = "umap_atac")
 #reduction = "umap_atac") 
 
-p2 <- FeaturePlot(seurat_src,
-c("MS4A1", "CD3D", "LEF1", "NKG7", "TREM1", "LYZ"))
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATAC_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
 both_ATAC<-p1 | p2
 print(both_ATAC)
 dev.off()
 
 
+### Data integration of the ATAC assay using Harmony
+seurat_src <- RunHarmony(seurat_src,
+    group.by.vars = "orig.ident",
+    reduction = "lsi",
+    dims.use = 2:30,
+    max.iter.harmony = 50,
+    reduction.save = "harmony_atac")
 
-###
+
+seurat_src <- RunUMAP(seurat_src,
+    reduction = "harmony",
+    dims = 2:30,
+    reduction.name = "umap_atac",
+    reduction.key = "umapatac_")
 
 
-atac <- RunTFIDF(seurat_src)
-atac <- FindTopFeatures(seurat_src, min.cutoff = 'q0')
-atac <- RunSVD(atac)
+#hm.integrated <- RunHarmony(seurat_src, group.by.vars ="orig.ident", reduction = 'lsi', assay.use = 'peaks', project.dim = FALSE)
+#hm.integrated <- RunUMAP(hm.integrated, dims = 2:30, reduction = 'harmony')
+#DimPlot(hm.integrated, group.by = 'dataset', pt.size = 0.1)
+
+p1<-DimPlot(seurat_src, group.by = "orig.ident",reduction = "umap_atac",pt.size =1.5)
+
+
+
+p2 <- FeaturePlot(seurat_src,
+    c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+    reduction = "umap_atac",pt.size =1.2)
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATAC_Integrated_harmony_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
+both_ATAC_hm<-p1 + p2
+print(both_ATAC_hm)
+dev.off()
+
+
