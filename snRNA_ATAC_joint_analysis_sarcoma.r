@@ -258,8 +258,8 @@ seurat_src <- NormalizeData(seurat_src) %>%   ### Normalizing
   #CellCycleScoring(s.features = cc.genes.updated.2019$s.genes,
                    #g2m.features = cc.genes.updated.2019$g2m.genes) %>%
   ScaleData() %>%         ### Scaling data
-  RunPCA(npcs = 50) %>%   ### Running PCA
-  RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")    ###UMAP embedding
+  RunPCA(npcs = 50) %>%   ### Running PCA (linear dimmenssion reduction)
+  RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")    ###UMAP embedding (Non-linear dimesnssion reduction)
 
 ## checking batch effect
 p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna",pt.size =1.5) 
@@ -292,9 +292,10 @@ rna_pca<-PCHeatmap(seurat_src, dims = 1:20, cells = 500, balanced = TRUE, ncol =
 print(rna_pca)
 dev.off()
 
-#####################################################
 ###########################################################
-### performing data integration to fix batch effect(RNA) ###
+###########################################################
+### performing data integration to fix batch effect(RNA) ##
+###########################################################
 
 #seurat_src <- cluster_sim_spectrum(seurat_src,
 #label_tag = "orig.ident",
@@ -303,50 +304,42 @@ dev.off()
 #reduction.key = "CSSRNA_")
 
 ### Using Harmony 
-seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",plot_converge=TRUE,max_iter = 10, reduction = "pca",reduction.save = "harmony_rna",assay.use="RNA")
+seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",max_iter = 50, dims.use = 1:20)
 
 
 ## NOTE: To make sure our Harmony integration is reflected in the data visualization, we still need to generate a UMAP derived from these harmony embeddings instead of PCs:
-harmonized_seurat <- RunUMAP(seurat_src, reduction = "harmony_rna", assay = "RNA", dims = 1:40)
-
-
 seurat_src <- RunUMAP(seurat_src,
     reduction = "harmony",
-    dims = 1:ncol(Embeddings(seurat_src,"harmony")))
+    dims = 1:20)
 
 
 ### save the object
 p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap",pt.size =1.5) 
 
 p2 <- FeaturePlot(seurat_src,
-c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
 reduction = "umap",alpha = 1, pt.size =1)
 
 
 pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
-both<-p1 + p2
-print(both)
+both_harmony_rna<-p1 + p2
+print(both_harmony_rna)
 dev.off()
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/P1_RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_justfeature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
 p2 <- FeaturePlot(seurat_src,
-c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
 reduction = "umap",alpha = 1, pt.size =1)
 print(p2)
 dev.off()
-
-#p2 <- FeaturePlot(seurat_src,
-#c("PREX2","CD99", "CAV1","KDSR","CALCRL", "CYYR1", "SNTG2", "SPP1", "RAMP3", "ADAMTS9", "IGFBP5", "TPO" ),
-#reduction = "umap",alpha = 1, pt.size =1)
-#print(p2)
 
 
 ## clustering and cluster marker identification
 
 seurat_src <- FindNeighbors(seurat_src,
 reduction = "harmony",
-dims = 1:ncol(Embeddings(seurat_src,"harmony"))) %>%
-FindClusters(resolution = 0.2)
+dims = 1:20) %>%
+FindClusters(resolution = 0.6)
 
 
 #DE_cl_rna <- presto::wilcoxauc(seurat_src, "RNA_snn_res.0.2")
@@ -360,19 +353,17 @@ FindClusters(resolution = 0.2)
 #top_n(1, wt = auc)
 
 
-p1 <- DimPlot(seurat_src,
-group.by="RNA_snn_res.0.2",
-reduction="umap", label=T,pt.size =1.9, alpha = 0.7) 
 
-p2 <- FeaturePlot(seurat_src,
-c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
-order = T,
-ncol=3) 
+DefaultAssay(seurat_src ) <- "RNA"
+plot1 <- UMAPPlot(seurat_src , group.by="orig.ident",pt.size =1)
+plot2 <- UMAPPlot(seurat_src , label = T,pt.size =1)
+plot3 <- FeaturePlot(seurat_src, c("COL1A1","RUNX2","CD74","CDH11"), ncol=2, pt.size =1)
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/clustered_RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
-both_clustered<-(p1 | p2) + patchwork::plot_layout(widths = c(2,3))
-print(both_clustered)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_integration_plot_Harmony.pdf",height = 18, width =24)
+snRNA_integration_plot<-((plot1 / plot2) | plot3) + plot_layout(width = c(1,2))
+print(snRNA_integration_plot)
 dev.off()
+
 
 
 # You may also want to save the object
