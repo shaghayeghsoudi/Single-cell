@@ -267,16 +267,17 @@ p1
 
 
 p2 <- FeaturePlot(seurat_src,
-c("IGFBP7", "PREX2", "CALCRL", "ADAMTS9", "CYYR1", "SPP1", "VEGFC"," NFIB"), alpha = 1, pt.size =1)
+c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"), alpha = 1, pt.size =1)
 #reduction = "umap_css_rna") & NoAxes() & NoLegend()
 pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples_batch_effect_relaxed.pdf",height = 14, width =19)
-both<-p1 + p2
-print(both)
+both_rna<-p1 + p2
+print(both_rna)
 dev.off()
 
-#########################################
-#### Visualzie top variable feature #####
-#### OPTIONAL ####
+#####################################################
+#####################################################
+#### Visualzie top variable feature snRNA assay #####
+#### OPTIONAL #######################################
 pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/LabelPoint_plot_snRNA_top_features.pdf",height = 9, width =14)
 top_features <- head(VariableFeatures(seurat_src), 20)
 plot1 <- VariableFeaturePlot(seurat_src)
@@ -285,7 +286,13 @@ top_vars<-plot1 + plot2
 print(top_vars)
 dev.off()
 
+### heatmap of PCAs 
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/TopPCAs_Heatmap_plot_snRNA.pdf",height = 9, width =14)
+rna_pca<-PCHeatmap(seurat_src, dims = 1:20, cells = 500, balanced = TRUE, ncol = 3)
+print(rna_pca)
+dev.off()
 
+#####################################################
 ###########################################################
 ### performing data integration to fix batch effect(RNA) ###
 
