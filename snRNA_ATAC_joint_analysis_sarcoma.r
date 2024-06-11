@@ -9,14 +9,13 @@ library(BSgenome.Hsapiens.UCSC.hg38)
 
 library(ggplot2)
 library(patchwork)
-#library(simspec)  ## for data integration
+library(simspec)  ## for data integration
 library("harmony")
 
 
 
 #Pre-processing workflow
 #When pre-processing chromatin data, Signac uses information from two related input files, both of which can be created using CellRanger:#
-
 root<-("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024")
 
 counts <- Read10X_h5(filename = paste(root,"/med399-1/filtered_feature_bc_matrix.h5", sep = ""))
@@ -135,7 +134,7 @@ p1 <- DimPlot(object = pbmc, label = TRUE, dims = c(2, 3), reduction = "lsi") +
 
 ##########################
 ##### joint samples ######
-
+##########################
 root<-("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024")
 
 
@@ -194,7 +193,7 @@ peaks <- reduce(unlist(as(c(seurat_SRC399_1@assays$ATAC@ranges,
                             seurat_SRC399_2@assays$ATAC@ranges),
                           "GRangesList")))
 peakwidths <- width(peaks)
-peaks <- peaks[peakwidths < 15000 & peakwidths > 10]
+peaks <- peaks[peakwidths < 20000 & peakwidths > 7]
 
 
 counts_atac_merged <- FeatureMatrix(seurat_src@assays$ATAC@fragments,
@@ -254,13 +253,13 @@ seurat_src <- subset(seurat_src,
 
 DefaultAssay(seurat_src) <- "RNA"
 
-seurat_src <- NormalizeData(seurat_src) %>%
-  FindVariableFeatures(nfeatures = 3000) %>%
+seurat_src <- NormalizeData(seurat_src) %>%   ### Normalizing
+  FindVariableFeatures(nfeatures = 3000) %>%  ### Finding top vaiables
   #CellCycleScoring(s.features = cc.genes.updated.2019$s.genes,
                    #g2m.features = cc.genes.updated.2019$g2m.genes) %>%
-  ScaleData() %>%
-  RunPCA(npcs = 50) %>%
-  RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")
+  ScaleData() %>%         ### Scaling data
+  RunPCA(npcs = 50) %>%   ### Running PCA
+  RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")    ###UMAP embedding
 
 ## checking batch effect
 p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna",pt.size =1.5) 
@@ -275,8 +274,20 @@ both<-p1 + p2
 print(both)
 dev.off()
 
-#######################################################
-### performing data integration to fix batch effect ###
+#########################################
+#### Visualzie top variable feature #####
+#### OPTIONAL ####
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/LabelPoint_plot_snRNA_top_features.pdf",height = 9, width =14)
+top_features <- head(VariableFeatures(seurat_src), 20)
+plot1 <- VariableFeaturePlot(seurat_src)
+plot2 <- LabelPoints(plot = plot1, points = top_features, repel = TRUE)
+top_vars<-plot1 + plot2
+print(top_vars)
+dev.off()
+
+
+###########################################################
+### performing data integration to fix batch effect(RNA) ###
 
 #seurat_src <- cluster_sim_spectrum(seurat_src,
 #label_tag = "orig.ident",
@@ -284,8 +295,13 @@ dev.off()
 #reduction.name = "css_rna",
 #reduction.key = "CSSRNA_")
 
+### Using Harmony 
+seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",plot_converge=TRUE,max_iter = 10, reduction = "pca",reduction.save = "harmony_rna",assay.use="RNA")
 
-seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",plot_converge=TRUE,max_iter = 10)
+
+## NOTE: To make sure our Harmony integration is reflected in the data visualization, we still need to generate a UMAP derived from these harmony embeddings instead of PCs:
+harmonized_seurat <- RunUMAP(seurat_src, reduction = "harmony_rna", assay = "RNA", dims = 1:40)
+
 
 seurat_src <- RunUMAP(seurat_src,
     reduction = "harmony",
@@ -366,12 +382,11 @@ seurat_src <- FindTopFeatures(seurat_src, min.cutoff = 50)
 ## Normalization
 seurat_src <- RunTFIDF(seurat_src)
 
-## linear dimenssion reduction
+## linear dimenssion reduction ##
 seurat_src <- RunSVD(seurat_src, n = 50)
 
 
-#Non-linear dimension reduction with UMAP for visualization
-
+## Non-linear dimension reduction with UMAP for visualization ##
 p1 <- ElbowPlot(seurat_src, ndims = 30, reduction="lsi")
 p2 <- DepthCor(seurat_src, n = 30)
 p1 + p2
@@ -408,7 +423,7 @@ dev.off()
 ### Data integration of the ATAC assay using Harmony
 seurat_src <- RunHarmony(seurat_src,
     group.by.vars = "orig.ident",
-    reduction = "lsi",
+    reduction = "lsi",   ### it should be SVD embedding ("Isi") instead of PCA embedding
     dims.use = 2:30,
     max.iter.harmony = 50,
     reduction.save = "harmony_atac")
@@ -438,4 +453,16 @@ both_ATAC_hm<-p1 + p2
 print(both_ATAC_hm)
 dev.off()
 
+#################################################################################
+### Section 2. Bi-modal integrative analysis of the RNA-ATAC scMultiome data ###
+#################################################################################
 
+#Step 1. Weighted nearest neighbor analysis
+seurat_src <- FindMultiModalNeighbors(seurat_src,
+        reduction.list = list("harmony", "harmony"),
+        dims.list =
+        list(1:ncol(Embeddings(seurat_src,"harmony")),
+        1:ncol(Embeddings(seurat_src,"harmony"))),
+        modality.weight.name =
+        c("RNA.weight","ATAC.weight"),
+        verbose = TRUE)
