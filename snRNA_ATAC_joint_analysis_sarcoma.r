@@ -297,13 +297,8 @@ dev.off()
 ### performing data integration to fix batch effect(RNA) ##
 ###########################################################
 
-#seurat_src <- cluster_sim_spectrum(seurat_src,
-#label_tag = "orig.ident",
-#cluster_resolution = 0.6,
-#reduction.name = "css_rna",
-#reduction.key = "CSSRNA_")
 
-### Using Harmony 
+### Data integration with Harmony ####
 seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",max_iter = 50, dims.use = 1:20)
 
 
@@ -352,8 +347,7 @@ FindClusters(resolution = 0.6)
 #group_by(group) %>%
 #top_n(1, wt = auc)
 
-
-
+### plot the integrated data ###
 DefaultAssay(seurat_src ) <- "RNA"
 plot1 <- UMAPPlot(seurat_src , group.by="orig.ident",pt.size =1)
 plot2 <- UMAPPlot(seurat_src , label = T,pt.size =1)
@@ -364,10 +358,15 @@ snRNA_integration_plot<-((plot1 / plot2) | plot3) + plot_layout(width = c(1,2))
 print(snRNA_integration_plot)
 dev.off()
 
-
-
 # You may also want to save the object
 #saveRDS(seurat, file="integrated_seurat.rds")
+
+
+ ### Data integration using CSS
+#seurat_src <- cluster_sim_spectrum(seurat_src,
+#label_tag = "orig.ident",
+#cluster_resolution = 0.6,
+#reduction.name = "css_rna",
 
 ##########################################
 ### Step 4. Analysis on the ATAC assay ###
@@ -407,7 +406,7 @@ group.by = "orig.ident",
 reduction = "umap_atac",pt.size =1.5) 
 
 p2 <- FeaturePlot(seurat_src,
-c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
 reduction = "umap_atac")
 #reduction = "umap_atac") 
 
@@ -417,7 +416,7 @@ both_ATAC<-p1 | p2
 print(both_ATAC)
 dev.off()
 
-
+####################################################
 ### Data integration of the ATAC assay using Harmony
 seurat_src <- RunHarmony(seurat_src,
     group.by.vars = "orig.ident",
@@ -429,7 +428,7 @@ seurat_src <- RunHarmony(seurat_src,
 
 seurat_src <- RunUMAP(seurat_src,
     reduction = "harmony",
-    dims = 2:30,
+    dims = 2:20,
     reduction.name = "umap_atac",
     reduction.key = "umapatac_")
 
@@ -443,7 +442,7 @@ p1<-DimPlot(seurat_src, group.by = "orig.ident",reduction = "umap_atac",pt.size 
 
 
 p2 <- FeaturePlot(seurat_src,
-    c("PTPRC","COL5A1","CD4","CD68","CD99","CTSK","COL1A1","FBLN1","TOP2A"),
+    c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
     reduction = "umap_atac",pt.size =1.2)
 
 pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATAC_Integrated_harmony_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
@@ -456,11 +455,27 @@ dev.off()
 #################################################################################
 
 #Step 1. Weighted nearest neighbor analysis
-seurat_src <- FindMultiModalNeighbors(seurat_src,
-        reduction.list = list("harmony", "harmony"),
-        dims.list =
-        list(1:ncol(Embeddings(seurat_src,"harmony")),
-        1:ncol(Embeddings(seurat_src,"harmony"))),
-        modality.weight.name =
-        c("RNA.weight","ATAC.weight"),
-        verbose = TRUE)
+
+ seurat_src <- FindMultiModalNeighbors(
+         object = seurat_src,
+         reduction.list = list("pca", "lsi"), 
+         dims.list = list(1:20, 2:20),
+         weighted.nn.name = "weighted.nn",
+         modality.weight.name = "RNA.weight.name",
+         snn.graph.name = "wsnn",
+         verbose = TRUE
+)       
+
+
+seurat_src <- RunUMAP(seurat_src, nn.name = "weighted.nn", assay = "RNA")
+seurat_src <- FindClusters( seurat_src, graph.name = "wsnn", resolution = 0.2)
+p1 <- UMAPPlot(seurat_src, group.by = "orig.ident") 
+p2 <- UMAPPlot(seurat_src, group.by = "wsnn_res.0.2", label=T,pt.size =1.3) 
+p3 <- FeaturePlot(seurat_src,
+c("COL1A1","RUNX2","CD74","CDH11"),
+reduction = "umap") 
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/Bimodal_rna_atac_integrative_weighted_nearest_neigbor.pdf",height = 14, width =19)
+bimodal_rna_atac<-p1 + p2 +p3
+print(bimodal_rna_atac)
+dev.off()
