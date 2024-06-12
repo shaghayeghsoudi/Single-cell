@@ -440,7 +440,6 @@ seurat_src <- RunUMAP(seurat_src,
 p1<-DimPlot(seurat_src, group.by = "orig.ident",reduction = "umap_atac",pt.size =1.5)
 
 
-
 p2 <- FeaturePlot(seurat_src,
     c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
     reduction = "umap_atac",pt.size =1.2)
@@ -451,11 +450,13 @@ print(both_ATAC_hm)
 dev.off()
 
 #################################################################################
+#################################################################################
 ### Section 2. Bi-modal integrative analysis of the RNA-ATAC scMultiome data ###
 #################################################################################
+#################################################################################
 
-#Step 1. Weighted nearest neighbor analysis
 
+### Step 1. Weighted nearest neighbor analysis ###
  seurat_src <- FindMultiModalNeighbors(
          object = seurat_src,
          reduction.list = list("pca", "lsi"), 
@@ -468,14 +469,65 @@ dev.off()
 
 
 seurat_src <- RunUMAP(seurat_src, nn.name = "weighted.nn", assay = "RNA")
-seurat_src <- FindClusters( seurat_src, graph.name = "wsnn", resolution = 0.2)
-p1 <- UMAPPlot(seurat_src, group.by = "orig.ident") 
+#seurat_src <- FindClusters( seurat_src, graph.name = "wsnn", resolution = 0.2)
+seurat_src <- FindClusters( seurat_src, graph.name = "wsnn")
+
+p1 <- UMAPPlot(seurat_src, group.by = "orig.ident",pt.size =1.3) 
 p2 <- UMAPPlot(seurat_src, group.by = "wsnn_res.0.2", label=T,pt.size =1.3) 
 p3 <- FeaturePlot(seurat_src,
 c("COL1A1","RUNX2","CD74","CDH11"),
-reduction = "umap") 
+reduction = "umap",pt.size =1.3) 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/Bimodal_rna_atac_integrative_weighted_nearest_neigbor.pdf",height = 14, width =19)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/Bimodal_rna_atac_integrative_weighted_nearest_neigbor.pdf",height = 8, width =19)
 bimodal_rna_atac<-p1 + p2 +p3
 print(bimodal_rna_atac)
 dev.off()
+
+
+
+seurat_src$celltype <- setNames(rep(c("fMonocyte/Macrophage","Fibroblast","Endothelial","Monocyte/Macrophage","T cell"), c(4,4,1)),
+     c(c(0,4,5,8),c(1,2,6,7),3))
+     [as.character(seurat_src$wsnn_res.0.2)]
+p1 <- UMAPPlot(seurat_src, group.by = "celltype", label=T) & NoAxes()
+p2 <- FeaturePlot(seurat_src,
+     c("COL1A1","RUNX2","CD74","CDH11"),order=T,
+     reduction = "umap") 
+p1 | p2
+
+###################################################################################################################
+### Step 2. Cell type gene/peak marker identification and visualization of the chromatin accessibility profiles ###
+
+
+
+library(presto)
+DefaultAssay(seurat) <- "RNA"
+DE_ct <- wilcoxauc(seurat, "celltype", seurat_assay = "RNA")
+top_markers_ct <- DE_ct %>%
+     filter(abs(logFC) > log(1.2) &
+     padj < 0.01 &
+     auc > 0.65 &
+     pct_in - pct_out > 30 &
+     pct_out < 20) %>%
+     group_by(group) %>%
+     top_n(10, wt = auc)
+     top_markers_ct
+
+
+DefaultAssay(seurat) <- "ATAC"
+DA_ct <- wilcoxauc(seurat, "celltype", seurat_assay = "ATAC")
+top_peaks_ct <- DA_ct %>%
+     filter(abs(logFC) > log(1.1) &
+     padj < 0.01 &
+     auc > 0.55) %>%
+     group_by(group) %>%
+     top_n(100, wt = auc)
+     marker_peak_ct %>% top_n(5, wt=auc)    
+
+
+### link a gene with its nearby peaks     
+
+seurat_src <- RegionStats(seurat_src,genome = BSgenome.Hsapiens.UCSC.hg38)
+seurat_src <- LinkPeaks(seurat_src,peak.assay = "ATAC",expression.assay = "RNA",genes.use = top_markers_ct$feature)
+
+
+
