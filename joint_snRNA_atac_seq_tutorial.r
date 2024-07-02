@@ -11,181 +11,46 @@ library(dbplyr)
 library(hdf5r)
 library(AnnotationHub)
 
-###############
-### Step 1 ####
-###############
-### laod the data and create the Seurat object ###
-med399_1_counts<-Read10X_h5("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/med399-1/filtered_feature_bc_matrix.h5")
-med399_2_counts<-Read10X_h5("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/med399-2/filtered_feature_bc_matrix.h5")
 
+################################
+######## tutorial data 1 #######
+################################
 
-ATAC_frag399_1<-"~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/med399-1/atac_fragments.tsv.gz"
-ATAC_frag399_2<-"~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/med399-2/atac_fragments.tsv.gz"
+## Step1. Load the data and create the Seurat object
+counts_NC8 <- Read10X_h5("data/NC8/filtered_feature_bc_matrix.h5")
+counts_H9 <- Read10X_h5("data/H9/filtered_feature_bc_matrix.h5")
 
-# get gene annotations for hg38
+library(AnnotationHub)
 ah <- AnnotationHub()
 ensdbs <- query(ah, c("EnsDb.Hsapiens"))
-
-
-ensdb_id <- ensdbs$ah_id[grep(paste0("98 EnsDb"), ensdbs$title)]
+ensdb_id <- ensdbs$ah_id[grep(paste0(" 98 EnsDb"), ensdbs$title)]
 ensdb <- ensdbs[[ensdb_id]]
-
 seqlevelsStyle(ensdb) <- "UCSC"
 annotations <- GetGRangesFromEnsDb(ensdb = ensdb)
 genome(annotations) <- "hg38"
 
 
-# create a Seurat object containing the RNA adata
-seurat_SRC399_1 <- CreateSeuratObject(counts = med399_1_counts$`Gene Expression`,
-                                 assay = "RNA",
-                                 project = "SRC399-1")
-
-
-
-seurat_SRC399_2 <- CreateSeuratObject(counts = med399_2_counts$`Gene Expression`,
-                                      assay = "RNA",
-                                      project = "SRC399-2")
-
-
-seurat_SRC399_1[['ATAC']] <- CreateChromatinAssay(counts = med399_1_counts$`Peaks`,
-                                             annotation = annotations,fragments =ATAC_frag399_1,
-                                             sep = c(":", "-"),
-                                             genome = 'hg38')
-                                             
-                                               
-                                             
-
-seurat_SRC399_2[['ATAC']] <- CreateChromatinAssay(counts = med399_2_counts$`Peaks`,
-                                                  annotation = annotations,fragments =ATAC_frag399_2,
-                                                  sep = c(":", "-"),
-                                                  genome = 'hg38')
-
-
-
-### merge for samples
-seurat <- merge(seurat_SRC399_1, seurat_SRC399_2)
-
-
-peaks <- reduce(unlist(as(c(seurat_SRC399_1@assays$ATAC@ranges,
-                            seurat_SRC399_2@assays$ATAC@ranges),
-                          "GRangesList")))
-peakwidths <- width(peaks)
-peaks <- peaks[peakwidths < 10000 & peakwidths > 20]
-
-
-counts_atac_merged <- FeatureMatrix(seurat@assays$ATAC@fragments,
-                                    features = peaks,
-                                    cells = colnames(seurat))
-
-seurat[['ATAC']] <- CreateChromatinAssay(counts_atac_merged,
-                                         fragments = seurat@assays$ATAC@fragments,
-                                         annotation =
-                                           seurat@assays$ATAC@annotation,
-                                         sep = c(":",
-                                                 "-"),
-                                         genome = "hg38")
-
-
-
-### subset the peaks to just focus on those at the stand the stand
-
-library(BSgenome.Hsapiens.UCSC.hg38)
-standard_chroms <- standardChromosomes(BSgenome.Hsapiens.UCSC.hg38)
-idx_standard_chroms <- which(as.character(seqnames(granges(seurat[['ATAC']]))) %in%
-                               standard_chroms)
-seurat[["ATAC"]] <- subset(seurat[["ATAC"]],
-                           features = rownames(seurat[["ATAC"]])
-                           [idx_standard_chroms])
-seqlevels(seurat[['ATAC']]@ranges) <-
-  intersect(seqlevels(granges(seurat[['ATAC']])),
-            unique(seqnames(granges(seurat[['ATAC']]))))
-
-
-###############
-### Step 2 ####
-###############
-### Quality control
-
-
-seurat <- PercentageFeatureSet(seurat, pattern = "^MT-", col.name = "percent.mt",
-                               assay = "RNA")
-seurat <- NucleosomeSignal(seurat, assay = "ATAC")
-seurat <- TSSEnrichment(seurat, assay = "ATAC")
-
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/VlnPlot_quality")
-quality_plot<-VlnPlot(seurat,
-        features = c("nFeature_RNA",
-                     "percent.mt",
-                     "nFeature_ATAC",
-                     "TSS.enrichment",
-                     "nucleosome_signal"),
-                      ncol = 5,
-                      pt.size = 0)
-print(quality_plot)
-dev.off()
-
-
-
-### Based on the distributions, we can manually set the cutoffs for each metric to exclude the outlier cells.
-seurat <- subset(seurat,
-                 subset = nFeature_RNA > 500 &
-                   nFeature_RNA < 7000 &
-                   percent.mt < 30 &
-                   nFeature_ATAC > 500 &
-                   nFeature_ATAC < 10000 &
-                   TSS.enrichment > 1 &
-                   nucleosome_signal < 2
-)
-
-###################################
-##### Step 3 ###
-## Analysis on the RNA assay ####
-
-DefaultAssay(seurat) <- "RNA"
-
-seurat <- NormalizeData(seurat) %>%
-  FindVariableFeatures(nfeatures = 3000) %>%
-  #CellCycleScoring(s.features = cc.genes.updated.2019$s.genes,
-                   #g2m.features = cc.genes.updated.2019$g2m.genes) %>%
-  ScaleData() %>%
-  RunPCA(npcs = 50) %>%
-  RunUMAP(dims = 1:20, reduction.name = "umap_rna", reduction.key = "UMAPRNA_")
-
-
-p1 <- DimPlot(seurat, group.by = "orig.ident", reduction = "umap_rna") & NoAxes()
-p1
 
 
 
 
-### clustering and cluster marker identification, just as in the typical scRNA-seq data analysis
-seurat <- FindNeighbors(seurat,
-                        reduction = "css_rna",
-                        dims = 1:ncol(Embeddings(seurat,"css_rna"))) %>%
-  FindClusters(resolution = 0.2)
 
 
 
 
-##############################
-######## tutorial data #######
-##############################
+################################
+######## tutorial data 2 #######
+################################
+
 #Analyzing PBMC scATAC-seq
 # source: https://stuartlab.org/signac/articles/pbmc_vignette
 
-library(Signac)
-library(Seurat)
-library(EnsDb.Hsapiens.v75)
-#library(EnsDb.Hsapiens.v86)
-#library(BSgenome.Hsapiens.UCSC.hg38)
 
-library(ggplot2)
-library(patchwork)
 
 #Pre-processing workflow
 #When pre-processing chromatin data, Signac uses information from two related input files, both of which can be created using CellRanger:#
 
-root<-("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/Seurat_signac_tutorial_data")
+root<-("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Seurat_signac_tutorial_data")
 
 counts <- Read10X_h5(filename = paste(root,"/atac_v1_pbmc_10k_filtered_peak_bc_matrix.h5", sep = ""))
 metadata <- read.csv(file = paste(root,"/atac_v1_pbmc_10k_singlecell.csv", sep = ""),header = TRUE,  row.names = 1)
