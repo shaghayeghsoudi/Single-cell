@@ -165,11 +165,15 @@ seurat_src <- NormalizeData(seurat_src) %>%   ### Normalizing
 p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap_rna",pt.size =1.5) 
 p1
 
-
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_justFeature_plot_combined_SRCs_with_batch_effect.pdf",height = 20, width =22)
 p2 <- FeaturePlot(seurat_src,
-c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"), alpha = 1, pt.size =1)
-#reduction = "umap_css_rna") & NoAxes() & NoLegend()
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples_batch_effect_relaxed.pdf",height = 14, width =19)
+c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","COL1A1","PLVAP","VWF","RGS5"), alpha = 1, pt.size =1)
+print(p2)
+dev.off()
+
+
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_Dim_Feature_plots_combined_SRCs_with_batch_effect.pdf",height = 20, width =22)
 both_rna<-p1 + p2
 print(both_rna)
 dev.off()
@@ -199,8 +203,10 @@ dev.off()
 
 
 ### Data integration with Harmony ####
-seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",max_iter = 50, dims.use = 1:20)
+seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",max_iter = 50)
 
+# Check Harmony embeddings
+head(Embeddings(seurat_src, "harmony"))
 
 ## NOTE: To make sure our Harmony integration is reflected in the data visualization, we still need to generate a UMAP derived from these harmony embeddings instead of PCs:
 seurat_src <- RunUMAP(seurat_src,
@@ -212,11 +218,11 @@ seurat_src <- RunUMAP(seurat_src,
 p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap",pt.size =1.5) 
 
 p2 <- FeaturePlot(seurat_src,
-c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
+c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","COL1A1","PLVAP","VWF","RGS5"),
 reduction = "umap",alpha = 1, pt.size =1)
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_feature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_Dim_Feature_plot_combined_SRCs_Harmony.pdf",height = 18, width =24)
 both_harmony_rna<-p1 + p2
 print(both_harmony_rna)
 dev.off()
