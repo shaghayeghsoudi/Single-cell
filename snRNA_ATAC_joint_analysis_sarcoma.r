@@ -273,17 +273,27 @@ dev.off()
 #print(snRNA_integration_plot)
 #dev.off()
 
+### which exact cell types or cell states these cell clusters are representing?
+ct_markers <- c("PTPRC","CD68","CD74","CTSK","CXCL12","COL1A1","COL1A1","PLVAP","VWF","GZMA","TRAF2","MALAT1","CD63","TMSB4X","COX7C","SPP1","MRC1","EPB41L3","RGS16","TGFBI","CD40LG","IL7R","TNF","CD69","FOXP3","IL2RA","CTLA4","GZMA") 
+
+DoHeatmap(seurat_src, features = ct_markers)
+
+cl_markers <- FindAllMarkers(seurat_src, only.pos = TRUE, min.pct = 0.25,
+     logfc.threshold = log(1.2))
+library(dplyr)
+cl_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 
 
-### Data integration using CSS
-#seurat_src <- cluster_sim_spectrum(seurat_src,
-#label_tag = "orig.ident",
-#cluster_resolution = 0.6,
-#reduction.name = "css_rna",
 
-##########################################
-### Step 4. Analysis on the ATAC assay ###
-##########################################
+## Violin plot - Visualize single cell expression distributions in each cluster
+ct_markers <- c("PTPRC","CD68","CD74","CTSK","CXCL12","COL1A1","COL1A1","PLVAP","VWF")
+
+VlnPlot(seurat_src, features = ct_markers[1:8])
+#####################################################
+#####################################################
+########## Step 4. Analysis on the ATAC assay #######
+#####################################################
+#####################################################
 
 #Feature selection
 DefaultAssay(seurat_src) <- "ATAC"
