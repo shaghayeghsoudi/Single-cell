@@ -214,34 +214,43 @@ seurat_src <- RunUMAP(seurat_src,
     dims = 1:20)
 
 
-### save the object
-p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap",pt.size =1.5) 
+p1 <- DimPlot(seurat_src, group.by = "orig.ident", reduction = "umap",pt.size =1.8) 
 
 p2 <- FeaturePlot(seurat_src,
 c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","COL1A1","PLVAP","VWF","RGS5"),
 reduction = "umap",alpha = 1, pt.size =1)
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_Dim_Feature_plot_combined_SRCs_Harmony.pdf",height = 18, width =24)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_Dim_Feature_plots_combined_SRCs_Harmony.pdf",height = 18, width =24)
 both_harmony_rna<-p1 + p2
 print(both_harmony_rna)
 dev.off()
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_justfeature_plot_combined_SRC_samples_Harmony.pdf",height = 18, width =24)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/RNA_justfeature_plot_combined_SRCs_Harmony.pdf",height = 18, width =24)
 p2 <- FeaturePlot(seurat_src,
-c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
-reduction = "umap",alpha = 1, pt.size =1)
+c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","COL1A1","PLVAP","VWF","RGS5"),
+reduction = "umap",alpha = 1, pt.size =1.1)
 print(p2)
 dev.off()
 
 
-## clustering and cluster marker identification
+### save the object
+saveRDS("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/seurat_src", file = "integrated_harmony_combined_SRCs.rds")
 
+
+####################################################
+### clustering and cluster marker identification ###
+####################################################
 seurat_src <- FindNeighbors(seurat_src,
-reduction = "harmony",
-dims = 1:20) %>%
-FindClusters(resolution = 0.6)
+     reduction = "harmony",
+     dims = 1:20) %>%
+     FindClusters(resolution = 0.6)
 
+
+cluetr_plot<-DimPlot(seurat_src, reduction = "umap",pt.size =1.8, label = TRUE) 
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_integrated_Harmony_clustered.pdf",height = 12, width =14)
+print(cluetr_plot)
+dev.off()
 
 #DE_cl_rna <- presto::wilcoxauc(seurat_src, "RNA_snn_res.0.2")
 #top_markers <- DE_cl_rna %>%
@@ -254,21 +263,19 @@ FindClusters(resolution = 0.6)
 #top_n(1, wt = auc)
 
 ### plot the integrated data ###
-DefaultAssay(seurat_src ) <- "RNA"
-plot1 <- UMAPPlot(seurat_src , group.by="orig.ident",pt.size =1)
-plot2 <- UMAPPlot(seurat_src , label = T,pt.size =1)
-plot3 <- FeaturePlot(seurat_src, c("COL1A1","RUNX2","CD74","CDH11"), ncol=2, pt.size =1)
+#DefaultAssay(seurat_src ) <- "RNA"
+#plot1 <- UMAPPlot(seurat_src , group.by="orig.ident",pt.size =1)
+#plot2 <- UMAPPlot(seurat_src , label = T,pt.size =1.4)
+#plot3 <- FeaturePlot(seurat_src, c("COL1A1","RUNX2","CD74","CDH11"), ncol=2, pt.size =1)
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_integration_plot_Harmony.pdf",height = 18, width =24)
-snRNA_integration_plot<-((plot1 / plot2) | plot3) + plot_layout(width = c(1,2))
-print(snRNA_integration_plot)
-dev.off()
-
-# You may also want to save the object
-#saveRDS(seurat, file="integrated_seurat.rds")
+#pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_integration_plot_Harmony.pdf",height = 18, width =24)
+#snRNA_integration_plot<-((plot1 / plot2) | plot3) + plot_layout(width = c(1,2))
+#print(snRNA_integration_plot)
+#dev.off()
 
 
- ### Data integration using CSS
+
+### Data integration using CSS
 #seurat_src <- cluster_sim_spectrum(seurat_src,
 #label_tag = "orig.ident",
 #cluster_resolution = 0.6,
