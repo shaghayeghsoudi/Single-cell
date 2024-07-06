@@ -203,7 +203,7 @@ dev.off()
 
 
 ### Data integration with Harmony ####
-seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident",max_iter = 50)
+seurat_src <- RunHarmony(seurat_src, group.by.vars = "orig.ident")
 
 # Check Harmony embeddings
 head(Embeddings(seurat_src, "harmony"))
@@ -235,9 +235,10 @@ dev.off()
 
 
 ### save the object
-saveRDS("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/seurat_src", file = "integrated_harmony_combined_SRCs.rds")
 
+saveRDS(seurat_src, file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/integrated_harmony_combined_SRCs.rds")
 
+#ww<-readRDS("~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/integrated_harmony_combined_SRCs.rds")
 ####################################################
 ### clustering and cluster marker identification ###
 ####################################################
@@ -273,27 +274,56 @@ dev.off()
 #print(snRNA_integration_plot)
 #dev.off()
 
-### which exact cell types or cell states these cell clusters are representing?
-ct_markers <- c("PTPRC","CD68","CD74","CTSK","CXCL12","COL1A1","COL1A1","PLVAP","VWF","GZMA","TRAF2","MALAT1","CD63","TMSB4X","COX7C","SPP1","MRC1","EPB41L3","RGS16","TGFBI","CD40LG","IL7R","TNF","CD69","FOXP3","IL2RA","CTLA4","GZMA") 
+
+
+############################################################
+### various visualizations of marker feature expression ####
+## Violin plot - Visualize single cell expression distributions in each cluster
+ct_markers <- unique(c("PTPRC","CD68","CD74","CTSK","CXCL12","COL1A1","PLVAP","VWF","GZMA","TRAF2","MALAT1","CD63","TMSB4X","COX7C","SPP1","MRC1","EPB41L3","RGS16","TGFBI","CD40LG","IL7R","TNF","CD69","FOXP3","IL2RA","CTLA4","GZMA"))
+
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_expression distributions_in_each_cluster_PART1_Harmony.pdf",height = 18, width =18)
+express_dist<-VlnPlot(seurat_src, features = ct_markers[14:28],
+     pt.size =1,
+     alpha = 0.7)
+print(express_dist)
+dev.off()
+
+
+# Ridge plots - from ggridges. Visualize single cell expression distributions in each cluster
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/Ridge_plots_selected_snRNA_expression_distributions_in_each_cluster_Harmony.pdf",height = 22, width =22)
+selected_cl_markers<-c("PTPRC","CD74","MALAT1","COL1A1","TMSB4X","EPB41L3","TGFBI")
+express_ridge<-RidgePlot(seurat_src, features = selected_cl_markers, ncol = 2)
+print(express_ridge)
+dev.off()
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_Dotplot_expression_distributions_in_each_cluster_Harmony.pdf",height = 9, width =9)
+dot_express<-DotPlot(seurat_src, features = ct_markers) + RotatedAxis()
+print(dot_express)
+dev.off()
+
+####################### Annotate clusters #########################################
+### which exact cell types or cell states these cell clusters are representing? ###
 
 DoHeatmap(seurat_src, features = ct_markers)
 
 cl_markers <- FindAllMarkers(seurat_src, only.pos = TRUE, min.pct = 0.25,
-     logfc.threshold = log(1.2))
-library(dplyr)
+     logfc.threshold = log(1.2)) ### error: Warning: When testing 10 versus all:
+                                 ### data layers are not joined. Please run JoinLayers
+
+qq<-JoinLayers(seurat_src)
+
+cl_markers <- FindAllMarkers(qq, only.pos = TRUE, min.pct = 0.25,
++                              logfc.threshold = log(1.2))
+
 cl_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 
 
-
-## Violin plot - Visualize single cell expression distributions in each cluster
-ct_markers <- c("PTPRC","CD68","CD74","CTSK","CXCL12","COL1A1","COL1A1","PLVAP","VWF")
-
-VlnPlot(seurat_src, features = ct_markers[1:8])
-#####################################################
-#####################################################
-########## Step 4. Analysis on the ATAC assay #######
-#####################################################
-#####################################################
+###########################################################
+###########################################################
+########## Step 4. Analysis on the sn-ATACseq assay #######
+###########################################################
+###########################################################
 
 #Feature selection
 DefaultAssay(seurat_src) <- "ATAC"
