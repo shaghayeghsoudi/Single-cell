@@ -314,7 +314,7 @@ cl_markers <- FindAllMarkers(seurat_src, only.pos = TRUE, min.pct = 0.25,
 qq<-JoinLayers(seurat_src)
 
 cl_markers <- FindAllMarkers(qq, only.pos = TRUE, min.pct = 0.25,
-+                              logfc.threshold = log(1.2))
+     logfc.threshold = log(1.2))
 
 cl_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
 
