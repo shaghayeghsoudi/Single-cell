@@ -333,9 +333,34 @@ dev.off()
 
 ### check those markers of different clusters in more details
 
-plot1 <- FeaturePlot(seurat, c("NEUROD2","NEUROD6"), ncol = 1)
-plot2 <- VlnPlot(seurat, features = c("NEUROD2","NEUROD6"), pt.size = 0)
-plot1 + plot2 + plot_layout(widths = c(1, 2))
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_Feature_Vlnplots_FindAllMarkers_selected6_in_each_cluster_Harmony.pdf",height = 10, width =20)
+plot1 <- FeaturePlot(seurat_src, c("FKBP5","CD86","DLGAP1","STOX2","CD2","AURKB"), ncol = 3)
+plot2 <- VlnPlot(seurat_src,c("FKBP5","CD86","DLGAP1","STOX2","CD2","AURKB"), ncol = 3)
+plot1_plot2<-plot1 | plot2 
+print(plot1_plot2)
+dev.off()
+
+
+
+#replace the cell cluster labels by the annotation
+### TO DO => modify this based on sarcoma
+new_ident <- setNames(c("Dorsal telen. NPC",
+     "Midbrain-hindbrain boundary neuron",
+     "Dorsal telen. neuron",
+     "Dien. and midbrain excitatory neuron",
+     "MGE-like neuron","G2M dorsal telen. NPC",
+     "Dorsal telen. IP","Dien. and midbrain NPC",
+     "Dien. and midbrain IP and excitatory early neuron",
+     "G2M Dien. and midbrain NPC",
+     "G2M dorsal telen. NPC",
+     "Dien. and midbrain inhibitory neuron",
+     "Dien. and midbrain IP and early inhibitory neuron",
+     "Ventral telen. neuron",
+     "Unknown 1",
+     "Unknown 2"),
+levels(seurat))
+seurat <- RenameIdents(seurat, new_ident)
+DimPlot(seurat, reduction = "umap", label = TRUE) + NoLegend()
 
 ###########################################################
 ###########################################################
