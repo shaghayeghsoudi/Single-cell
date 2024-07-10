@@ -305,7 +305,10 @@ dev.off()
 ####################### Annotate clusters #########################################
 ### which exact cell types or cell states these cell clusters are representing? ###
 
-DoHeatmap(seurat_src, features = ct_markers)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_heatmap_marker_expression_in_each_cluster_Harmony.pdf",height = 14, width =14)
+heaty<-DoHeatmap(seurat_src, features = ct_markers)
+print(heaty)
+dev.off()
 
 cl_markers <- FindAllMarkers(seurat_src, only.pos = TRUE, min.pct = 0.25,
      logfc.threshold = log(1.2)) ### error: Warning: When testing 10 versus all:
@@ -316,8 +319,23 @@ qq<-JoinLayers(seurat_src)
 cl_markers <- FindAllMarkers(qq, only.pos = TRUE, min.pct = 0.25,
      logfc.threshold = log(1.2))
 
-cl_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_logFC)
+cl_markers %>% group_by(cluster) %>% top_n(n = 2, wt = avg_log2FC)
 
+
+
+top10_cl_markers <- cl_markers %>% group_by(cluster) %>% top_n(n = 15, wt =avg_log2FC)
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_heatmap_marker_FindAllMarkers__top15_in_each_cluster_Harmony.pdf",height = 15, width =16)
+dot_express_cluster<-DoHeatmap(seurat_src, features = top10_cl_markers$gene) + NoLegend()
+print(dot_express_cluster)
+dev.off()
+
+
+### check those markers of different clusters in more details
+
+plot1 <- FeaturePlot(seurat, c("NEUROD2","NEUROD6"), ncol = 1)
+plot2 <- VlnPlot(seurat, features = c("NEUROD2","NEUROD6"), pt.size = 0)
+plot1 + plot2 + plot_layout(widths = c(1, 2))
 
 ###########################################################
 ###########################################################
