@@ -249,7 +249,7 @@ seurat_src <- FindNeighbors(seurat_src,
 
 
 cluetr_plot<-DimPlot(seurat_src, reduction = "umap",pt.size =1.8, label = TRUE) 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_integrated_Harmony_clustered.pdf",height = 12, width =14)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/snRNA_integrated_Harmony.pdf",height = 12, width =14)
 print(cluetr_plot)
 dev.off()
 
@@ -370,10 +370,12 @@ DimPlot(seurat, reduction = "umap", label = TRUE) + NoLegend()
 
 #Feature selection
 DefaultAssay(seurat_src) <- "ATAC"
-seurat_src <- FindTopFeatures(seurat_src, min.cutoff = 50)
-
 ## Normalization
 seurat_src <- RunTFIDF(seurat_src)
+
+seurat_src <- FindTopFeatures(seurat_src, min.cutoff = 50)
+
+
 
 ## linear dimenssion reduction ##
 seurat_src <- RunSVD(seurat_src, n = 50)
@@ -402,12 +404,12 @@ group.by = "orig.ident",
 reduction = "umap_atac",pt.size =1.5) 
 
 p2 <- FeaturePlot(seurat_src,
-c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
+c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","COL1A1","PLVAP","VWF","RGS5"),
 reduction = "umap_atac")
 #reduction = "umap_atac") 
 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATAC_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATACsn_Dim_Feature_plots_combined_SRCs_with_batch_effect.pdf",height = 20, width =19)
 both_ATAC<-p1 | p2
 print(both_ATAC)
 dev.off()
@@ -418,7 +420,9 @@ seurat_src <- RunHarmony(seurat_src,
     group.by.vars = "orig.ident",
     reduction = "lsi",   ### it should be SVD embedding ("Isi") instead of PCA embedding
     dims.use = 2:30,
-    max.iter.harmony = 50,
+    overwrite = TRUE,
+    project.dim = FALSE,   ### fix the error in data.use %*% cell.embeddings : non-conformable arguments
+    #max.iter.harmony = 50,
     reduction.save = "harmony_atac")
 
 
@@ -437,7 +441,7 @@ p1<-DimPlot(seurat_src, group.by = "orig.ident",reduction = "umap_atac",pt.size 
 
 
 p2 <- FeaturePlot(seurat_src,
-    c("COL1A1","LUM","CDH11","RUNX2","SOX9","CD3D","CD74","CD99","SFRP2","CTSK","MMP9","CXCL12","MYL1"),
+    c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","COL1A1","PLVAP","VWF","RGS5"),
     reduction = "umap_atac",pt.size =1.2)
 
 pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/ATAC_Integrated_harmony_feature_plot_combined_SRC_samples.pdf",height = 14, width =19)
@@ -457,26 +461,35 @@ dev.off()
          object = seurat_src,
          reduction.list = list("pca", "lsi"), 
          dims.list = list(1:20, 2:20),
-         weighted.nn.name = "weighted.nn",
-         modality.weight.name = "RNA.weight.name",
-         snn.graph.name = "wsnn",
-         verbose = TRUE
+         #weighted.nn.name = "weighted.nn",
+         #modality.weight.name = "RNA.weight.name",
+         #snn.graph.name = "wsnn",
+         #verbose = TRUE
 )       
 
 
-seurat_src <- RunUMAP(seurat_src, nn.name = "weighted.nn", assay = "RNA")
+### Find clusters based on multimodal neighbors
 #seurat_src <- FindClusters( seurat_src, graph.name = "wsnn", resolution = 0.2)
 seurat_src <- FindClusters( seurat_src, graph.name = "wsnn")
 
+# Run UMAP for visualization
+seurat_src <- RunUMAP(seurat_src, nn.name = "weighted.nn", assay = "RNA")
+
 p1 <- UMAPPlot(seurat_src, group.by = "orig.ident",pt.size =1.3) 
-p2 <- UMAPPlot(seurat_src, group.by = "wsnn_res.0.2", label=T,pt.size =1.3) 
+p2 <- UMAPPlot(seurat_src, group.by = "wsnn_res.0.8", label=T,pt.size =1.3) 
+
+
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/wsnn_Bimodal_rna_atac_integrative_weighted_nearest_neigbor.pdf",height = 8, width =19)
+bimodal_rna_atac<-p1 | p2 
+print(bimodal_rna_atac)
+dev.off()
+
 p3 <- FeaturePlot(seurat_src,
-c("COL1A1","RUNX2","CD74","CDH11"),
+c("PTPRC","CD68","CD163","CDH11","CD74","CD99","RUNX2","CTSK","NT5E","ENG","CRIP1","CXCL12","MME","CD4","COL1A1","COL3A1","PLVAP","VWF","RGS5"),
 reduction = "umap",pt.size =1.3) 
 
-pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/Bimodal_rna_atac_integrative_weighted_nearest_neigbor.pdf",height = 8, width =19)
-bimodal_rna_atac<-p1 + p2 +p3
-print(bimodal_rna_atac)
+pdf(file = "~/Dropbox/cancer_reserach/sarcoma/sarcoma_analysis/single_cell/Medgenome_multiome10X_March2024/wsnn_Bimodal_rna_atac_features_integrative_weighted_nearest_neigbor.pdf",height = 14, width =19)
+print(p3)
 dev.off()
 
 
